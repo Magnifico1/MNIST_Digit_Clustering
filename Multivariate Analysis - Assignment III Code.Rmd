@@ -1,0 +1,316 @@
+---
+title: 'Multivariate Analysis: Assignment III Code'
+author: "Alexander Ross"
+date: "2023-04-03"
+output: pdf_document
+---
+
+# 1. Load libraries and data set
+```{r}
+library(corrplot)
+library(ggcorrplot)
+library(caret) 
+library(factoextra)
+
+mnist <- read.csv("emnist-mnist-test.csv")
+```
+# 2. Exploratory Analysis
+### Separate into features and labels
+```{r}
+mnist_ft = mnist[,-1]
+mnist_lb = as.factor(mnist[, 1])
+ft_matrix = as.matrix(mnist_ft)
+```
+
+### Visualise an example character for each digit
+```{r}
+ex_digits <- c(5,7,21,19,15,31,14,16,13,35)
+for(i in ex_digits){
+  vis <- matrix((mnist_ft[i,]), nrow=28, ncol=28)
+  vis_num <- apply(vis, 2, as.numeric)
+  image(1:28, 1:28, vis_num, col=gray((0:255)/255))
+}
+```
+
+### Correlations for sample of 9-pixel square in the centre
+```{r}
+cormat_reduced <- cor(mnist_ft[,c(350:353, 378:381, 406:409)])
+corplot_reduced <- corrplot(cormat_reduced)
+scatmat_reduced <- ggcorrplot(cormat_reduced)
+scatmat_reduced
+```
+
+# 3. Dimensionality Reduction
+### Perform PCA 
+```{r}
+pca = prcomp(ft_matrix, center=T)
+print(paste('PCs:', ncol(pca$x)))
+```
+
+### Visualise labels on PC axes
+```{r}
+fviz_pca_ind(pca, label="none", habillage=as.factor(mnist_lb))
+```
+
+### Proportions of variance visualisations 
+```{r}
+scree = fviz_eig(pca, ncp=50, addlabels=F, barfill="steelblue")+
+  theme(axis.text.x=element_blank(), text=element_text(size=17))
+scree
+```
+
+```{r}
+Sigma <- cov(mnist_ft)
+eig <- eigen(Sigma)
+prop_var <- eig$values/sum(eig$values)
+
+prop_var_df = data.frame(x=c(1:784), y=cumsum(prop_var))
+prop_var_df_50 = prop_var_df[c(1:50),]
+prop_var_df_50$colour <- ifelse(prop_var_df_50$y < .8, "red", "black")
+
+ggplot(prop_var_df_50) + geom_point(aes(x, y), col=prop_var_df_50$colour) + 
+  geom_hline(yintercept=0.80, linetype="dashed", col="red") +
+  annotate("text", x = 10, y = 0.8, label = "80%", vjust = -0.5) +
+  xlab("Dimensions") + 
+  ylab("Percentage of Explained Variances") + ylim(0,1) +
+  theme(text=element_text(size=15))
+```
+
+# 4. Clustering 
+### Scores of the data in the first 33 dimensions of PCA
+```{r}
+mnist_ft_scores <- pca$x[,c(1:33)]
+```
+
+### Perform clustering with 10 centers
+```{r}
+set.seed(50)
+clustering <- kmeans(x = mnist_ft_scores, centers = 10)
+```
+
+### Cluster assignments
+```{r}
+k_means <- factor(clustering$cluster)
+```
+
+### Plot the clusters on PC axis
+```{r}
+fviz_pca_ind(pca, label = "none", habillage = k_means)
+```
+
+### Visualise labels associated with the assignments for each cluster
+```{r}
+clusters_labels <- data.frame(cbind(k_means, as.factor(mnist_lb)))
+
+ggplot(clusters_labels) + geom_bar(aes(y=mnist_lb, fill=as.factor(k_means))) +
+  ggtitle("Cluster Profile for Features Assigned to Each Label") + 
+  ylim(0.5,10.5) + scale_y_discrete(limits=factor(c(0:9))) + ylab("Label") + 
+  scale_fill_discrete(name = "Cluster")
+```
+      
+## Evaluate clustering performance
+### Find the cluster number with the highest frequency among 0s
+```{r}
+args_0 <- which(mnist_lb %in% 0)
+freq0 <- table(k_means[args_0])
+most_frequent_0 <- names(which.max(freq0))
+```
+### among 1s
+```{r}
+args_1 <- which(mnist_lb %in% 1)
+freq1 <- table(k_means[args_1])
+most_frequent_1 <- names(which.max(freq1))
+```
+### among 2s
+```{r}
+args_2 <- which(mnist_lb %in% 2)
+freq2 <- table(k_means[args_2])
+most_frequent_2 <- names(which.max(freq2))
+```
+### among 3s
+```{r}
+args_3 <- which(mnist_lb %in% 3)
+freq3 <- table(k_means[args_3])
+most_frequent_3 <- names(which.max(freq3))
+```
+### among 4s
+```{r}
+args_4 <- which(mnist_lb %in% 4)
+freq4 <- table(k_means[args_4])
+most_frequent_4 <- names(which.max(freq4))
+```
+### among 5s
+```{r}
+args_5 <- which(mnist_lb %in% 5)
+freq5 <- table(k_means[args_5])
+most_frequent_5 <- names(which.max(freq5))
+```
+### among 6s
+```{r}
+args_6 <- which(mnist_lb %in% 6)
+freq6 <- table(k_means[args_6])
+most_frequent_6 <- names(which.max(freq6))
+```
+### among 7s
+```{r}
+args_7 <- which(mnist_lb %in% 7)
+freq7 <- table(k_means[args_7])
+most_frequent_7 <- names(which.max(freq7))
+```
+### among 8s
+```{r}
+args_8 <- which(mnist_lb %in% 8)
+freq8 <- table(k_means[args_8])
+most_frequent_8 <- names(which.max(freq8))
+```
+### among 9s
+```{r}
+args_9 <- which(mnist_lb %in% 9)
+freq9 <- table(k_means[args_9])
+most_frequent_9 <- names(which.max(freq9))
+```
+
+Since both labels 7 and 9 were assigned cluster 3 most often, we manually 
+set 7 to represent cluster 6, the remaining unidientified cluster:
+```{r}
+most_frequent_7 = "6"
+```
+### Proportion of correctly clustered characters for each digit
+```{r}
+accuracy_0 = sum(k_means[args_0]==most_frequent_0)/length(args_0)
+accuracy_1 = sum(k_means[args_1]==most_frequent_1)/length(args_1)
+accuracy_2 = sum(k_means[args_2]==most_frequent_2)/length(args_2)
+accuracy_3 = sum(k_means[args_3]==most_frequent_3)/length(args_3)
+accuracy_4 = sum(k_means[args_4]==most_frequent_4)/length(args_4)
+accuracy_5 = sum(k_means[args_5]==most_frequent_5)/length(args_5)
+accuracy_6 = sum(k_means[args_6]==most_frequent_6)/length(args_6)
+accuracy_7 = sum(k_means[args_7]==most_frequent_7)/length(args_7)
+accuracy_8 = sum(k_means[args_8]==most_frequent_8)/length(args_8)
+accuracy_9 = sum(k_means[args_9]==most_frequent_9)/length(args_9)
+accuracy_overall = mean(c(accuracy_0, accuracy_1, accuracy_2, 
+                          accuracy_3, accuracy_4, accuracy_5, 
+                          accuracy_6, accuracy_7,accuracy_8, accuracy_9))
+```
+
+### Calculate the BCSS
+```{r}
+overall_mean <- colMeans(mnist_ft_scores)
+bcss <- sum(clustering$size * apply(clustering$centers, 1, function(x) sum((x - overall_mean)^2)))
+```
+
+# 5. Typographical Alteration 
+### Add horizontal stroke to a 7
+```{r}
+first_7 <- matrix((mnist_ft[3,]), nrow=28, ncol=28)
+first_7[14,] <- c(rep(0,10),rep(256,14), rep(0,4))
+first_7_num <- apply(first_7, 2, as.numeric)
+image(1:28, 1:28, first_7_num, col=gray((0:255)/255))
+```
+
+### Assign the alteration to all 7s
+```{r}
+mnist_ft_alt <- mnist_ft
+
+for (i in args_7) {
+  ith_7 <- matrix((mnist_ft[i,]), nrow=28, ncol=28)
+  ith_7[14,] <- c(rep(0,10),rep(256,14), rep(0,4))
+  ith_7_num <- as.vector(apply(ith_7, 2, as.numeric))
+  mnist_ft_alt[i,] <- ith_7_num
+}
+```
+
+### Visualise a 7 to check alteration success
+```{r}
+check_7 <- matrix((mnist_ft_alt[25,]), nrow=28, ncol=28)
+check_7_num <- apply(check_7, 2, as.numeric)
+image(1:28, 1:28, check_7_num, col=gray((0:255)/255))
+```
+
+# 6. Rerun the analysis for the altered data
+```{r}
+ft_alt_matrix = as.matrix(mnist_ft_alt)
+```
+
+### Perform PCA
+```{r}
+pca_alt = prcomp(ft_alt_matrix, center=T)
+print(paste('PCs:', ncol(pca_alt$x)))
+```
+
+### Visualise labels on PC axes
+```{r}
+fviz_pca_ind(pca_alt, label="none", habillage=as.factor(mnist_lb))
+```
+
+### Proportions of variance visualisations
+```{r}
+scree_alt = fviz_eig(pca_alt, ncp=50, addlabels=T, main='Scree Plot')
+scree_alt
+```
+
+```{r}
+Sigma_alt <- cov(mnist_ft_alt)
+eig_alt <- eigen(Sigma_alt)
+prop_var_alt <- eig_alt$values/sum(eig_alt$values)
+
+prop_var_alt_df = data.frame(x=c(1:784), y=cumsum(prop_var_alt))
+prop_var_alt_df_50 = prop_var_alt_df[c(1:50),]
+prop_var_alt_df_50$colour <- ifelse(prop_var_alt_df_50$y < .8, "red", "black")
+
+ggplot(prop_var_alt_df_50) + 
+  geom_point(aes(x, y), col=prop_var_alt_df_50$colour) + 
+  geom_hline(yintercept=0.80, linetype="dashed", col="red") +
+  annotate("text", x = 10, y = 0.8, label = "80%", vjust = -0.5) +
+  xlab("Numer of Dimensions") + 
+  ylab("Percentage of Explained Variances") + ylim(0,1)
+```
+
+## Clustering
+### Scores of the data in the first 33 dimensions of PCA
+```{r}
+mnist_ft_alt_scores <- pca_alt$x[,c(1:33)]
+```
+
+### Perform clustering on altered data with 10 centers
+```{r}
+set.seed(50)
+clustering_alt = kmeans(x = mnist_ft_alt_scores, centers = 10)
+```
+
+### Cluster assignments
+```{r}
+k_means_alt = clustering_alt$cluster
+```
+
+### Plot the clusters
+```{r}
+fviz_pca_ind(pca_alt, label = "none", habillage = k_means_alt)
+```
+
+## Evaluate clustering performace on altered data
+
+### proportion of correctly clustered characters for each digit
+```{r}
+accuracy_0_alt = sum(k_means_alt[args_0]==most_frequent_0)/length(args_0)
+accuracy_1_alt = sum(k_means_alt[args_1]==most_frequent_1)/length(args_1)
+accuracy_2_alt = sum(k_means_alt[args_2]==most_frequent_2)/length(args_2)
+accuracy_3_alt = sum(k_means_alt[args_3]==most_frequent_3)/length(args_3)
+accuracy_4_alt = sum(k_means_alt[args_4]==most_frequent_4)/length(args_4)
+accuracy_5_alt = sum(k_means_alt[args_5]==most_frequent_5)/length(args_5)
+accuracy_6_alt = sum(k_means_alt[args_6]==most_frequent_6)/length(args_6)
+accuracy_7_alt = sum(k_means_alt[args_7]==most_frequent_7)/length(args_7)
+accuracy_8_alt = sum(k_means_alt[args_8]==most_frequent_8)/length(args_8)
+accuracy_9_alt = sum(k_means_alt[args_9]==most_frequent_9)/length(args_9)
+accuracy_overall_alt = mean(c(accuracy_0_alt, accuracy_1_alt, accuracy_2_alt, 
+                          accuracy_3_alt, accuracy_4_alt, accuracy_5_alt, 
+                          accuracy_6_alt, accuracy_7_alt,accuracy_8_alt,
+                          accuracy_9_alt))
+```
+
+### Quantify change in cluster separation
+```{r}
+overall_mean_alt <- colMeans(mnist_ft_alt_scores)
+bcss_alt <- sum(clustering_alt$size * apply(clustering_alt$centers,1,function(x)
+                                            sum((x - overall_mean_alt)^2)))
+bcss_diff <- bcss_alt-bcss
+```
